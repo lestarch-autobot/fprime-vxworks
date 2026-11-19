@@ -28,10 +28,21 @@ static int myRoutineWrapper(Os::TaskInterface::taskRoutine routine,  //!< Routin
     return OK;
 }
 
+VxWorksTask::~VxWorksTask() {
+    this->deregister(this);
+}
+
 void VxWorksTask::onStart() {}
 
-Os::Task::Status VxWorksTask::start(const Arguments& arguments) {
+Os::TaskInterface::Status VxWorksTask::start(const Arguments& arguments) {
     FW_ASSERT(arguments.m_routine != nullptr);
+    const Arguments wrapped_arguments = this->prepareStart(this, arguments);
+    const Status status = this->spawn(wrapped_arguments);
+    this->completeStart(this, status, wrapped_arguments);
+    return status;
+}
+
+Os::TaskInterface::Status VxWorksTask::spawn(const Arguments& arguments) {
 
     // Get taskName into a non-const variable because that is what
     // VxWorks' taskCreate wants.
@@ -39,12 +50,12 @@ Os::Task::Status VxWorksTask::start(const Arguments& arguments) {
     auto minimumStringSize = FW_MIN(sizeof(taskName), arguments.m_name.getCapacity());
     memcpy(taskName, arguments.m_name.toChar(), minimumStringSize);
 
-    if (arguments.m_stackSize == Os::Task::TASK_DEFAULT) {
-        return Os::Task::Status::INVALID_STACK;
+    if (arguments.m_stackSize == Os::TaskInterface::TASK_DEFAULT) {
+        return Os::TaskInterface::Status::INVALID_STACK;
     }
 
-    if (arguments.m_priority == Os::Task::TASK_PRIORITY_DEFAULT) {
-        return Os::Task::Status::INVALID_PRIORITY;
+    if (arguments.m_priority == Os::TaskInterface::TASK_PRIORITY_DEFAULT) {
+        return Os::TaskInterface::Status::INVALID_PRIORITY;
     }
 
     this->m_handle.m_task_descriptor = taskCreate(
@@ -53,12 +64,12 @@ Os::Task::Status VxWorksTask::start(const Arguments& arguments) {
         reinterpret_cast<_Vx_usr_arg_t>(arguments.m_routine_argument), 0, 0, 0, 0, 0, 0, 0, 0);
 
     if (this->m_handle.m_task_descriptor == TASK_ID_NULL) {
-        return Os::Task::Status::UNKNOWN_ERROR;
+        return Os::TaskInterface::Status::UNKNOWN_ERROR;
     }
 
 #ifdef _WRS_CONFIG_SMP
     // when cpuAffinity is set to TASK_DEFAULT, the affinity will be assigned by the scheduler
-    if (arguments.m_cpuAffinity != Os::Task::TASK_DEFAULT) {
+    if (arguments.m_cpuAffinity != Os::TaskInterface::TASK_DEFAULT) {
         cpuset_t aff;
 
         CPUSET_ZERO(aff);
@@ -67,32 +78,37 @@ Os::Task::Status VxWorksTask::start(const Arguments& arguments) {
         if (taskCpuAffinitySet(this->m_handle.m_task_descriptor, aff) == ERROR) {
             /* Either CPUs are not enabled or we are in UP mode */
             (void)taskDelete(this->m_handle.m_task_descriptor);
-            return Os::Task::Status::INVALID_AFFINITY;
+            return Os::TaskInterface::Status::INVALID_AFFINITY;
         }
     }
 #endif
 
     // Activate task
     if (taskActivate(this->m_handle.m_task_descriptor) == ERROR) {
-        return Os::Task::Status::UNKNOWN_ERROR;
+        return Os::TaskInterface::Status::UNKNOWN_ERROR;
     }
 
-    return Os::Task::Status::OP_OK;
+    return Os::TaskInterface::Status::OP_OK;
 }
 
-Os::Task::Status VxWorksTask::join() {
-    // There is no task join in taskLib.
-    return Os::Task::Status::JOIN_ERROR;
-    ;
+Os::TaskInterface::Status VxWorksTask::join() {
+    if (not this->prepareJoin(this)) {
+        return Os::TaskInterface::Status::INVALID_STATE;
+    }
+    // Joining is not supported on VxWorks
+    const Status status = Os::TaskInterface::Status::JOIN_ERROR;
+    this->completeJoin(this, status);
+    return status;
 }
 
 TaskHandle* VxWorksTask::getHandle() {
     return &this->m_handle;
 }
 
-void VxWorksTask::suspend(Os::Task::SuspensionType /*suspensionType*/) {
+void VxWorksTask::suspend(Os::TaskInterface::SuspensionType suspensionType) {
     STATUS status = taskSuspend(this->m_handle.m_task_descriptor);
     FW_ASSERT(status == VXWORKS_OK, static_cast<FwAssertArgType>(status));
+    this->completeSuspend(this, suspensionType);
 }
 
 void VxWorksTask::resume() {
@@ -100,17 +116,17 @@ void VxWorksTask::resume() {
     FW_ASSERT(status == OK, static_cast<FwAssertArgType>(status));
 }
 
-Os::Task::Status VxWorksTask::_delay(const Fw::TimeInterval& interval) {
+Os::TaskInterface::Status VxWorksTask::_delay(const Fw::TimeInterval& interval) {
     // Lookup the number of clock ticks for the specified
     // number of milliseconds. Use the ticks to call the
     // task delay function call.
-    Os::Task::Status status = Os::Task::DELAY_ERROR;
+    Os::TaskInterface::Status status = Os::TaskInterface::DELAY_ERROR;
 
     U32 milliseconds = interval.getUSeconds() / 1000 + interval.getSeconds() * 1000;
     U32 ticks = ((milliseconds * sysClkRateGet() + 999) / 1000);
 
     if (taskDelay(ticks) == OK) {
-        status = Os::Task::OP_OK;
+        status = Os::TaskInterface::OP_OK;
     }
 
     return status;

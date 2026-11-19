@@ -46,7 +46,12 @@ class VxWorksTask : public TaskInterface {
     VxWorksTask() = default;
 
     //! \brief default virtual destructor
-    ~VxWorksTask() = default;
+    ~VxWorksTask() override;
+
+    // The overrides below would otherwise hide the common overloads defined on TaskInterface
+    using TaskInterface::join;
+    using TaskInterface::start;
+    using TaskInterface::suspend;
 
     //! \brief copy constructor is forbidden
     VxWorksTask(const VxWorksTask& other) = delete;
@@ -114,7 +119,10 @@ class VxWorksTask : public TaskInterface {
         //! \param permissions: whether to expect permissions or not
         //! \return OP_OK on success, or an error
         Status
-        create(const Os::Task::Arguments& arguments, const VxWorksTask::PermissionExpectation permissions);
+        create(const Os::TaskInterface::Arguments& arguments, const VxWorksTask::PermissionExpectation permissions);
+
+    //! \brief create and activate the VxWorks task for already prepared arguments
+    Status spawn(const Arguments& arguments);
 
     VxWorksTaskHandle m_handle;                       //!< VxWorks task tracking
     static std::atomic<bool> s_permissions_reported;  //!< Permission errors have been reported
