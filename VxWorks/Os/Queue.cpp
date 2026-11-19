@@ -5,6 +5,7 @@
 #include "Queue.hpp"
 #include <intLib.h>
 #include <limits.h>
+#include <limits>
 #include <Fw/Types/Assert.hpp>
 
 namespace Os {
@@ -12,7 +13,7 @@ namespace VxWorks {
 namespace Queue {
 
 VxWorksQueue::~VxWorksQueue() {
-    this->teardown();
+    this->VxWorksQueue::teardown();
 }
 
 void VxWorksQueue::teardown() {
