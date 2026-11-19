@@ -53,6 +53,10 @@ class VxWorksQueue : public QueueInterface {
     //! Allow for queues to deallocate resources as part of system shutdown.
     void teardown() override;
 
+    // The overrides below would otherwise hide the common overloads defined on QueueInterface
+    using QueueInterface::receive;
+    using QueueInterface::send;
+
     //! \brief send a message into the queue
     //!
     //! Send a message into the queue, providing the message data, size, priority, and blocking type. When

@@ -20,13 +20,19 @@ void VxWorksQueue::teardown() {
         (void)msgQDelete(this->m_handle.m_queue);
         this->m_handle.m_queue = MSG_Q_ID_NULL;
     }
+    this->finishTeardown();
 }
 
 QueueInterface::Status VxWorksQueue::create(FwEnumStoreType /*id*/, const Fw::ConstStringBase& name, FwSizeType depth, FwSizeType messageSize) {
+    const QueueInterface::Status checkStatus = this->createChecks(depth, messageSize);
+    if (checkStatus != QueueInterface::Status::OP_OK) {
+        return checkStatus;
+    }
     this->m_handle.m_queue = msgQCreate(static_cast<size_t>(depth), static_cast<size_t>(messageSize), MSG_Q_PRIORITY);
     if (this->m_handle.m_queue == MSG_Q_ID_NULL) {
         return QueueInterface::Status::UNINITIALIZED;
     }
+    this->finishCreate(*this, name, depth, messageSize);
     return QueueInterface::Status::OP_OK;
 }
 
@@ -35,6 +41,10 @@ QueueInterface::Status VxWorksQueue::send(const U8* buffer,
                                           FwQueuePriorityType priority,
                                           QueueInterface::BlockingType blockType) {
     FW_ASSERT(buffer != nullptr);
+    const QueueInterface::Status checkStatus = this->sendChecks(buffer, size);
+    if (checkStatus != QueueInterface::Status::OP_OK) {
+        return checkStatus;
+    }
     if (this->m_handle.m_queue == MSG_Q_ID_NULL) {
         return QueueInterface::Status::UNINITIALIZED;
     }
@@ -77,6 +87,10 @@ QueueInterface::Status VxWorksQueue::receive(U8* destination,
                                              FwSizeType& actualSize,
                                              FwQueuePriorityType& priority) {
     FW_ASSERT(destination != nullptr);
+    const QueueInterface::Status checkStatus = this->receiveChecks(destination, capacity);
+    if (checkStatus != QueueInterface::Status::OP_OK) {
+        return checkStatus;
+    }
     if (this->m_handle.m_queue == MSG_Q_ID_NULL) {
         return QueueInterface::Status::UNINITIALIZED;
     }
