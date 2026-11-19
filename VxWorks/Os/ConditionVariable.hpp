@@ -46,6 +46,8 @@ class VxWorksConditionVariable : public ConditionVariableInterface {
   private:
     //! Handle for VxWorksMutex
     VxWorksConditionVariableHandle m_handle;
+    //! Mutex this condition variable is bound to: the first one supplied to pend
+    Os::Mutex* m_lock = nullptr;
 };
 
 }  // namespace Mutex

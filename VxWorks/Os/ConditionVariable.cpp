@@ -21,6 +21,10 @@ VxWorksConditionVariable::~VxWorksConditionVariable() {
 }
 
 VxWorksConditionVariable::Status VxWorksConditionVariable::pend(Os::Mutex& mutex) {
+    const Status check = ConditionVariableInterface::checkMutex(this->m_lock, mutex);
+    if (check != Status::OP_OK) {
+        return check;
+    }
     VxWorksMutexHandle* mutex_handle = reinterpret_cast<VxWorksMutexHandle*>(mutex.getHandle());
     FW_ASSERT(mutex_handle != nullptr);
 
