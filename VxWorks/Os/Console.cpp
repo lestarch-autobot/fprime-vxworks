@@ -12,6 +12,7 @@ namespace VxWorks {
 namespace Console {
 
 void VxWorksConsole::writeMessage(const CHAR* message, const FwSizeType size) {
+    FW_ASSERT(message != nullptr || size == 0);
     if (message != nullptr) {
         static_assert(std::is_unsigned<FwSizeType>::value, "FwSizeType is expected to be unsigned.");
         static_assert(MAX_CONSOLE_CAPACITY > 0, "Avoid dividing by zero.");
